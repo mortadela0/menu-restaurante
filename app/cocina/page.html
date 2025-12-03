@@ -6,8 +6,6 @@
   <title>🍳 Cocina - Pedidos</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
-  <audio id="notifSound" src="../not.mp3" preload="auto"></audio>
-  
   <script>
     tailwind.config = {
       theme: {
@@ -25,6 +23,15 @@
 
   <style>
     body { font-family: "Poppins", sans-serif; }
+
+    @keyframes flash {
+      0%, 100% { background-color: inherit; }
+      50% { background-color: #facc15; } /* color de parpadeo */
+    }
+
+    .flash {
+      animation: flash 0.8s ease-in-out;
+    }
   </style>
 </head>
 
@@ -43,6 +50,7 @@
 
 <script>
   let orders = [];
+
   async function loadOrders() {
     try {
       const response = await fetch("../orders.json?" + Date.now());
@@ -59,98 +67,109 @@
     }
   }
 
-  // render estado pedidos
-  function renderOrders() {
-    const container = document.getElementById("ordersContainer");
-    container.innerHTML = "";
-//completado
-    const clearBtn = document.createElement("button");
-    clearBtn.textContent = "🗑 Borrar completados";
-    clearBtn.className =
-      "mb-4 bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2 rounded transition";
-    clearBtn.onclick = clearCompleted;
-    container.appendChild(clearBtn);
+ 
+ let lastStatuses = {}; // guardar el último estado de cada orden
 
-    if (!orders.length) {
-      container.innerHTML += `<p class="text-gray-400 text-center">No hay pedidos disponibles.</p>`;
+function renderOrders() {
+  const container = document.getElementById("ordersContainer");
+  container.innerHTML = "";
+
+  // Botón de borrar completados
+  const clearBtn = document.createElement("button");
+  clearBtn.textContent = "🗑 Borrar completados";
+  clearBtn.className = "mb-4 bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2 rounded transition";
+  clearBtn.onclick = clearCompleted;
+  container.appendChild(clearBtn);
+
+  if (!orders.length) {
+    container.innerHTML += `<p class="text-gray-400 text-center">No hay pedidos disponibles.</p>`;
+    return;
+  }
+
+  const columns = [
+    { key: "pendiente", title: "Pendientes", color: "bg-yellow-100", border: "border-yellow-300" },
+    { key: "preparando", title: "Preparando", color: "bg-blue-100", border: "border-blue-300" },
+    { key: "listo", title: "Listos", color: "bg-green-100", border: "border-green-300" },
+    { key: "completado", title: "Completados", color: "bg-gray-100", border: "border-gray-300" },
+  ];
+
+  const board = document.createElement("div");
+  board.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6";
+
+  columns.forEach(col => {
+    const colOrders = orders.filter(o => o.status === col.key);
+    const colDiv = document.createElement("div");
+    colDiv.className = `${col.color} ${col.border} border rounded-lg p-3 shadow-sm flex flex-col`;
+
+    colDiv.innerHTML = `
+      <h2 class="text-lg font-semibold mb-3 flex justify-between items-center">
+        <span>${col.title}</span>
+        <span class="text-sm text-gray-600 bg-white/50 px-2 py-0.5 rounded">${colOrders.length}</span>
+      </h2>
+      <div class="space-y-3 flex-1 overflow-y-auto max-h-[65vh]" id="col-${col.key}"></div>
+    `;
+    board.appendChild(colDiv);
+
+    const colContainer = colDiv.querySelector(`#col-${col.key}`);
+
+    if (colOrders.length === 0) {
+      colContainer.innerHTML = `<p class="text-sm text-gray-500 text-center py-4">Sin órdenes</p>`;
       return;
     }
 
-    const columns = [
-      { key: "pendiente", title: "Pendientes", color: "bg-yellow-100", border: "border-yellow-300" },
-      { key: "preparando", title: "Preparando", color: "bg-blue-100", border: "border-blue-300" },
-      { key: "listo", title: "Listos", color: "bg-green-100", border: "border-green-300" },
-      { key: "completado", title: "Completados", color: "bg-gray-100", border: "border-gray-300" },
-    ];
+    colOrders
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+      .forEach((order, index) => {
+        const card = document.createElement("div");
+        card.className = "bg-white rounded-md shadow p-3 border border-gray-200 hover:shadow-md transition";
 
-    const board = document.createElement("div");
-    board.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6";
+        // Si cambió el estado, aplicar clase flash
+        if (lastStatuses[order.id] && lastStatuses[order.id] !== order.status) {
+          card.classList.add("flash");
+          // Remover la clase después de 1s
+          setTimeout(() => card.classList.remove("flash"), 1000);
+        }
 
-    columns.forEach(col => {
-      const colOrders = orders.filter(o => o.status === col.key);
-      const colDiv = document.createElement("div");
-      colDiv.className = `${col.color} ${col.border} border rounded-lg p-3 shadow-sm flex flex-col`;
+        lastStatuses[order.id] = order.status; // actualizar último estado
 
-      colDiv.innerHTML = `
-        <h2 class="text-lg font-semibold mb-3 flex justify-between items-center">
-          <span>${col.title}</span>
-          <span class="text-sm text-gray-600 bg-white/50 px-2 py-0.5 rounded">${colOrders.length}</span>
-        </h2>
-        <div class="space-y-3 flex-1 overflow-y-auto max-h-[65vh]" id="col-${col.key}"></div>
-      `;
-      board.appendChild(colDiv);
+        const itemsHTML = (order.items || [])
+          .map(i => `
+            <li class="border-b border-gray-100 py-1">
+              <div class="flex justify-between text-sm">
+                <span>${i.name} ×${i.qty}</span>
+                <span class="text-gray-600">$${(i.price * i.qty).toFixed(2)}</span>
+              </div>
+              ${i.specifications ? `<p class="text-xs text-gray-500 italic mt-1">📝 ${i.specifications}</p>` : ""}
+            </li>
+          `).join("");
 
-      const colContainer = colDiv.querySelector(`#col-${col.key}`);
+        const nextStatus = {
+          "pendiente": { label: "Preparar", value: "preparando", color: "bg-blue-500" },
+          "preparando": { label: "Listo", value: "listo", color: "bg-green-500" },
+          "listo": { label: "Completar", value: "completado", color: "bg-gray-500" }
+        }[order.status];
 
-      if (colOrders.length === 0) {
-        colContainer.innerHTML = `<p class="text-sm text-gray-500 text-center py-4">Sin órdenes</p>`;
-        return;
-      }
-
-      colOrders
-        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
-        .forEach(order => {
-          const card = document.createElement("div");
-          card.className = "bg-white rounded-md shadow p-3 border border-gray-200 hover:shadow-md transition";
-
-          const itemsHTML = (order.items || [])
-            .map(i => `
-              <li class="border-b border-gray-100 py-1">
-                <div class="flex justify-between text-sm">
-                  <span>${i.name} ×${i.qty}</span>
-                  
-                  <span class="text-gray-600">$${(i.price * i.qty).toFixed(2)}</span>
-                </div>
-                ${i.specifications ? `<p class="text-xs text-gray-500 italic mt-1">📝 ${i.specifications}</p>` : ""}
-              </li>
-            `).join("");
-          const nextStatus = {
-            "pendiente": { label: "Preparar", value: "preparando", color: "bg-blue-500" },
-            "preparando": { label: "Listo", value: "listo", color: "bg-green-500" },
-            "listo": { label: "Completar", value: "completado", color: "bg-gray-500" }
-          }[order.status];
-          
         const bloqueo = index !== 0; // si no es la primera, se bloquea
-
         const disabledAttr = bloqueo ? "disabled" : "";
         const disabledClass = bloqueo ? "opacity-40 cursor-not-allowed" : "hover:opacity-90";
-          card.innerHTML = `
-            <div>
-              <h3 class="font-semibold text-base">Orden #${order.id?.split("-")[1] || "?"}</h3>
-              <p class="text-sm text-gray-700 mb-1">Mesa: ${order.mesa || "?"}</p>
-              <ul class="bg-gray-50 border rounded-md p-2 mb-2 max-h-[140px] overflow-y-auto">
-                ${itemsHTML || "<li class='text-gray-400 text-sm'>Sin productos</li>"}
-              </ul>
-              <div class="flex justify-between items-center text-sm font-medium">
-                <span>Total:</span>
-                <span class="text-yellow-600 font-semibold">$MXN ${(order.total || 0).toFixed(2)}</span>
-              </div>
-              <p class="text-xs text-gray-400 mt-1">
-                Hace ${Math.round((Date.now() - new Date(order.createdAt)) / 60000)} min
-              </p>
-              ${
-                nextStatus
-                  ? `<button ${disabledAttr}
+
+        card.innerHTML = `
+          <div>
+            <h3 class="font-semibold text-base">Orden #${order.id?.split("-")[1] || "?"}</h3>
+            <p class="text-sm text-gray-700 mb-1">Mesa: ${order.mesa || "?"}</p>
+            <ul class="bg-gray-50 border rounded-md p-2 mb-2 max-h-[140px] overflow-y-auto">
+              ${itemsHTML || "<li class='text-gray-400 text-sm'>Sin productos</li>"}
+            </ul>
+            <div class="flex justify-between items-center text-sm font-medium">
+              <span>Total:</span>
+              <span class="text-yellow-600 font-semibold">$MXN ${(order.total || 0).toFixed(2)}</span>
+            </div>
+            <p class="text-xs text-gray-400 mt-1">
+              Hace ${Math.round((Date.now() - new Date(order.createdAt)) / 60000)} min
+            </p>
+            ${
+              nextStatus
+                ? `<button ${disabledAttr}
                     onclick="updateStatus('${order.id}', '${nextStatus.value}')"
                     class="mt-3 w-full ${nextStatus.color} text-white text-sm py-1.5 rounded ${disabledClass} transition">
                     ${nextStatus.label}
@@ -159,14 +178,15 @@
             }
           </div>
         `;
-
         colContainer.appendChild(card);
       });
-    });
+  });
 
-    container.appendChild(board);
-  }
+  container.appendChild(board);
+}
 
+
+  
   async function updateStatus(orderId, newStatus) {
     try {
       const res = await fetch("../update_status.php", {
@@ -174,7 +194,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: orderId, status: newStatus })
       });
-      playSound();
+
       const data = await res.json();
       if (data.success) {
         loadOrders();
@@ -186,6 +206,7 @@
     }
   }
 
+  
   async function clearCompleted() {
     if (!confirm("¿Seguro que quieres borrar todas las órdenes completadas?")) return;
 
@@ -204,12 +225,7 @@
   }
 
   setInterval(loadOrders, 5000);
-  function playSound() {
-  const audio = new Audio("not.mp3");
-  audio.play();
-}
   loadOrders();
-
 </script>
 </body>
 </html>
