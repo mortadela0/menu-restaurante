@@ -1,0 +1,23 @@
+[
+    {
+        "id": "order-1764240047789",
+        "mesa": "10",
+        "items": [
+            {
+                "name": "Quesadilla de pollo",
+                "specifications": "Con piña, Extra queso",
+                "qty": 1,
+                "price": 95
+            },
+            {
+                "name": "Tacos de bistec",
+                "specifications": "Con queso, Con salsa",
+                "qty": 1,
+                "price": 85
+            }
+        ],
+        "total": 180,
+        "status": "completado",
+        "createdAt": "2025-11-27T10:40:47.790Z"
+    }
+]

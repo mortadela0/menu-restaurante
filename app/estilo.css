@@ -1,0 +1,24 @@
+
+.toast {
+  position: fixed;
+  bottom: 25px;
+  right: 25px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(30, 30, 30, 0.9);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  padding: 14px 20px;
+  border-radius: 14px;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.45);
+  opacity: 0;
+  transform: translateY(25px);
+  transition: opacity .4s ease, transform .4s ease;
+  z-index: 999999;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
