@@ -129,6 +129,11 @@
             "preparando": { label: "Listo", value: "listo", color: "bg-green-500" },
             "listo": { label: "Completar", value: "completado", color: "bg-gray-500" }
           }[order.status];
+          
+        const bloqueo = index !== 0; // si no es la primera, se bloquea
+
+        const disabledAttr = bloqueo ? "disabled" : "";
+        const disabledClass = bloqueo ? "opacity-40 cursor-not-allowed" : "hover:opacity-90";
           card.innerHTML = `
             <div>
               <h3 class="font-semibold text-base">Orden #${order.id?.split("-")[1] || "?"}</h3>
@@ -145,17 +150,20 @@
               </p>
               ${
                 nextStatus
-                  ? `<button onclick="updateStatus('${order.id}', '${nextStatus.value}')" 
-                      class="mt-3 w-full ${nextStatus.color} text-white text-sm py-1.5 rounded hover:opacity-90 transition">
-                      ${nextStatus.label}
-                    </button>`
-                  : ""
-              }
-            </div>
-          `;
-          colContainer.appendChild(card);
-        });
+                  ? `<button ${disabledAttr}
+                    onclick="updateStatus('${order.id}', '${nextStatus.value}')"
+                    class="mt-3 w-full ${nextStatus.color} text-white text-sm py-1.5 rounded ${disabledClass} transition">
+                    ${nextStatus.label}
+                  </button>`
+                : ""
+            }
+          </div>
+        `;
+
+        colContainer.appendChild(card);
+      });
     });
+
     container.appendChild(board);
   }
 
